@@ -4,7 +4,7 @@ Laboratorio de Compiladores - Diseño e implementación de un lenguaje de progra
 
 > 🌐 Estás viendo la **versión en español** de este documento.  
 > También disponible en inglés:
-> [![English](https://img.shields.io/badge/Language-English-blue)](README.md)
+> [![English](https://img.shields.io/badge/English-blue?style=for-the-badge](README.md)
 
 ## Acerca del proyecto
 
