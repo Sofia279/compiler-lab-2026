@@ -57,3 +57,4 @@ dkms.conf
 # others
 bin/*
 build/*
+.vscode/
