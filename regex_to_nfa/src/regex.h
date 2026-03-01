@@ -42,7 +42,7 @@ typedef enum {
 
 typedef struct {
     ItemType type;
-    int value;  // holds the character
+    char value; 
 } Item;
 
 typedef struct {
@@ -51,30 +51,17 @@ typedef struct {
 } Regex;
 
 
-/* Parsing */
-
-Regex parse_regex(const char *regex_str);
-Regex to_postfix(Regex r);
-
-/**
- * @brief Function to free the memory allocated for a regex struct, including its items array.
- * This function should be called when the regex struct is no longer needed to avoid memory leaks.
- * @param r The regex struct to free
- */
-void  free_regex(Regex r);
-
-
-
-/*
- * @brief Helper function to create a new item with the given value and operator status.
- *
- * @param value The character value of the item
- * @param type An item_type indicating the type of the operator
- * @return An item struct with the specified value and operator status
- */
+// Helper functions
 Item new_item(char value, ItemType type);
+ItemType get_item_type(char c);
+void  free_regex(Regex *r);
 
-/* Matching */
-int regex_match(const char *pattern, const char *text);
+// Helper functions for parsing
+Item *itemize_regex(const char *regex_str, int *out_size);
+Item *implicit_to_explicit_concatenation(const Item *items, int size, int *out_size);
+Item *shunting_yard(const Item *items, int size, int *out_size);
+
+/* Parsing */
+Regex parse_regex(const char *regex_str);
 
 #endif
