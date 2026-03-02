@@ -156,49 +156,182 @@ void add_transition(states_manager *manager, uint8_t from_state, char symbol, ui
     manager->transitions_count++;
 }
 
+///////////////////////////////////////////////////
+// NFA construction functions:
+// 1. Symbol NFA            a
+// 2. Concatenation NFA     .
+// 3. Union NFA             |
+// 4. Positive Closure NFA  +
+// 5. Kleene Closure NFA    *
+// 6. Optional NFA          ?
+///////////////////////////////////////////////////
 
-// NFA construction functions
-t_nfa concat_nfa(states_manager *manager, t_nfa *a, t_nfa *b) {
-    (void)manager;
-    (void)a;
-    (void)b;
-    t_nfa result = {0};
-    return result;
-}
-
+/** 
+ * @brief Function to create a new NFA for a single symbol.
+ * - Creates a new start and end state.
+ * - Adds a transition from the start state to the end state on the given symbol.
+ * - Returns the NFA fragment.
+ */
 t_nfa symbol_nfa(states_manager *manager, char symbol) {
-    (void)manager;
-    (void)symbol;
     t_nfa result = {0};
+
+    // 1) Create start and end states
+    uint8_t start = new_state(manager);
+    uint8_t end = new_state(manager);
+
+    // 2) Add transition start --symbol--> end
+    add_transition(manager, start, symbol, end);
+
+    // 3) Set NFA fragment
+    result.start = start;
+    result.end = end;
+
     return result;
 }
 
+/**
+ * @brief Function to create a new NFA for the concatenation of two NFAs.
+ * - The start state is the start of the first NFA.
+ * - The end state is the end of the second NFA.
+ * - An epsilon transition is added from the end of the first NFA to the start of
+ */
+t_nfa concat_nfa(states_manager *manager, t_nfa *a, t_nfa *b) {
+    t_nfa result = {0};
+
+    // 1) Start state is the start of first NFA
+    result.start = a->start;
+
+    // 2) End state is the end of second NFA
+    result.end = b->end;
+
+    // 3) Add epsilon transition from a->end to b->start
+    add_transition(manager, a->end, EPSILON_SYMBOL, b->start);
+
+    return result;
+}
+
+
+/**
+ * @brief Function to create a new NFA for the union of two NFAs.
+ * - A new start state and a new end state are created.
+ * - Epsilon transitions are added from the new start state to the start states of both NFAs.
+ * - Epsilon transitions are added from the end states of both NFAs to the new end state.
+ * - Returns the resulting NFA fragment.
+ */
 t_nfa union_nfa(states_manager *manager, t_nfa *a, t_nfa *b) {
-    (void)manager;
-    (void)a;
-    (void)b;
-    t_nfa result = {0};
+    t_nfa result;
+
+    // 1) Create new start and end states
+    uint8_t start = new_state(manager);
+    uint8_t end = new_state(manager);
+
+    // 2) Epsilon transitions from new start to both NFAs
+    add_transition(manager, start, EPSILON_SYMBOL, a->start);
+    add_transition(manager, start, EPSILON_SYMBOL, b->start);
+
+    // 3) Epsilon transitions from both NFAs to new end
+    add_transition(manager, a->end, EPSILON_SYMBOL, end);
+    add_transition(manager, b->end, EPSILON_SYMBOL, end);
+
+    result.start = start;
+    result.end = end;
+
     return result;
 }
 
+/** 
+ * @brief Function to create a new NFA for the positive closure of an NFA.
+ * - A new start state and a new end state are created.
+ * - An epsilon transition is added from the new start state to the start of the NFA.
+ * - An epsilon transition is added from the end of the NFA back to its start (loop).
+ * - An epsilon transition is added from the end of the NFA to the new end state (exit).
+ * - Returns the resulting NFA fragment.
+ */
 t_nfa positive_closure_nfa(states_manager *manager, t_nfa *a) {
-    (void)manager;
-    (void)a;
     t_nfa result = {0};
+
+    // 1) Create new start and end
+    uint8_t start = new_state(manager);
+    uint8_t end = new_state(manager);
+
+    // 2) Epsilon start -> a.start
+    add_transition(manager, start, EPSILON_SYMBOL, a->start);
+
+    // 3) Loop: a.end -> a.start
+    add_transition(manager, a->end, EPSILON_SYMBOL, a->start);
+
+    // 4) Exit: a.end -> new end
+    add_transition(manager, a->end, EPSILON_SYMBOL, end);
+
+    result.start = start;
+    result.end = end;
+
     return result;
 }
 
+
+/**
+ * @brief Function to create a new NFA for the Kleene closure of an NFA.
+ * - A new start state and a new end state are created.
+ * - An epsilon transition is added from the new start state to the start of the NFA.
+ * - An epsilon transition is added from the new start state to the new end state (allowing empty string).
+ * - An epsilon transition is added from the end of the NFA back to its start (loop).
+ * - An epsilon transition is added from the end of the NFA to the new end state (exit).
+ * - Returns the resulting NFA fragment.
+ */
 t_nfa kleene_closure_nfa(states_manager *manager, t_nfa *a) {
-    (void)manager;
-    (void)a;
-    t_nfa result = {0};
+    t_nfa result;
+
+    // 1) Create new start and end states
+    uint8_t start = new_state(manager);
+    uint8_t end   = new_state(manager);
+
+    // 2) Epsilon start -> a.start
+    add_transition(manager, start, EPSILON_SYMBOL, a->start);
+
+    // 3) Epsilon start -> end  (allow empty string)
+    add_transition(manager, start, EPSILON_SYMBOL, end);
+
+    // 4) Loop: a.end -> a.start
+    add_transition(manager, a->end, EPSILON_SYMBOL, a->start);
+
+    // 5) Exit: a.end -> end
+    add_transition(manager, a->end, EPSILON_SYMBOL, end);
+
+    result.start = start;
+    result.end   = end;
+
     return result;
 }
 
+
+/** 
+ * @brief Function to create a new NFA for the optional operator applied to an NFA.
+ * - A new start state and a new end state are created.
+ * - An epsilon transition is added from the new start state to the start of the NFA.
+ * - An epsilon transition is added from the new start state to the new end state (allowing empty string).
+ * - An epsilon transition is added from the end of the NFA to the new end state (exit).
+ * - Returns the resulting NFA fragment.
+ */
 t_nfa optional_nfa(states_manager *manager, t_nfa *a) {
-    (void)manager;
-    (void)a;
     t_nfa result = {0};
+
+    // 1) Create new start and end states
+    uint8_t start = new_state(manager);
+    uint8_t end   = new_state(manager);
+
+    // 2) Epsilon start -> a.start
+    add_transition(manager, start, EPSILON_SYMBOL, a->start);
+
+    // 3) Epsilon start -> end (skip)
+    add_transition(manager, start, EPSILON_SYMBOL, end);
+
+    // 4) Epsilon a.end -> end
+    add_transition(manager, a->end, EPSILON_SYMBOL, end);
+
+    result.start = start;
+    result.end   = end;
+
     return result;
 }
 
