@@ -22,7 +22,7 @@
 
 // Special characters
 #define ESCAPE_SYMBOL '\\'
-#define EPSILON_VALUE 256 // A value outside the ASCII range to represent epsilon transitions
+#define EPSILON_SYMBOL 256 // A value outside the ASCII range to represent epsilon transitions
 
 /**
  * @brief Symbol types in precedence order (operators only).
