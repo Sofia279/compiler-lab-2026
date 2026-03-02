@@ -1,11 +1,11 @@
-#include "regex.h"      // Regular expression
+#include "regex.h"      // Regular expressions
 #include "nfa.h"        // Nondeterministic Finite Automaton (NFA)
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <getopt.h>
 
-void print_postfix(regex r){
+void print_postfix(Regex r) {
     for (int i = 0; i < r.size; i++) {
         printf("%c", r.items[i].value);
     }
@@ -13,7 +13,7 @@ void print_postfix(regex r){
 }
 
 void test_strings_stdin(const char *regex_str) {
-    regex r = parse_regex(regex_str);
+    Regex r = parse_regex(regex_str);
     nfa n = regex_to_nfa(r);
 
     char buf[1024];

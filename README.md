@@ -12,17 +12,6 @@ Compiler Laboratory: Design and implementation of a custom programming language 
 
 **Work in Progress** - README will be completed incrementally
 
-## Documentation Progress
-
-- [x] Project title and description
-- [x] Basic structure outline
-- [x] Complete course structure (modules)
-- [ ] Technologies and tools
-- [ ] Installation/Compilation instructions
-- [ ] Usage examples
-- [ ] API documentation (lexer, parser, etc.)
-- [x] Branch Strategy
-
 ## Overview
 
 This repository documents the development of a complete compiler as part of the Compilers 2026-2 course. The project evolves through 11 focused practices covering lexical, syntax, and semantic analysis to code generation, culminating in a final integrative project: a fully functional programming language designed for a specific domain [to be defined] like robot control, game scripting, automation, etc.
@@ -42,7 +31,7 @@ The laboratory is divided into **11 focused practices** and a **final integrativ
 
 | Module | Status | Practices Complete |
 |--------|--------|-------------------|
-| Lexical Analysis | Not Started | 0/4 |
+| Lexical Analysis | Started | 1/4 |
 | Syntactic Analysis | Not Started | 0/4 |
 | Semantic Analysis | Not Started | 0/2 |
 | Code Generation | Not Started | 0/1 |
@@ -74,7 +63,12 @@ All programs follow the **Unix pipeline contract**:
 
 ## How to Use
 
-*Documentation in progress*
+Each practice lives in its own directory. Navigate to the corresponding folder and follow
+its README for compilation and execution instructions.
+
+| Practice | Directory | Description |
+|----------|-----------|-------------|
+| Practice 1 | [`regex_to_nfa/`](regex_to_nfa/README.md) | From Regular Expressions to NFA |
 
 ## Branch strategy
 
