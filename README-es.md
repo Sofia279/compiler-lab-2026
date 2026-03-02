@@ -31,7 +31,7 @@ El laboratorio se divide en **11 prácticas enfocadas** y un **proyecto final in
 
 | Módulo | Estado | Prácticas Completadas |
 |--------|--------|-------------------|
-| Análisis Léxico | No Iniciado | 0/4 |
+| Análisis Léxico | Iniciado | 1/4 |
 | Análisis Sintáctico | No Iniciado | 0/4 |
 | Análisis Semántico | No Iniciado | 0/2 |
 | Generación de Código | No Iniciado | 0/1 |
@@ -63,7 +63,12 @@ Todos los programas siguen el **contrato de pipeline de Unix**:
 
 ## Cómo Usar
 
-*Documentación en progreso*
+Cada práctica vive en su propio directorio. Navege a la carpeta correspondiente y siga su README para las instrucciones de compilación y ejecución.
+
+| Practica | Directorio | Descripción |
+|----------|-----------|-------------|
+| Practica 1 | [`regex_to_nfa/`](regex_to_nfa/README.md) | De Expresiones Regulares a NFA |
+
 
 ## Estrategia de Ramas
 
