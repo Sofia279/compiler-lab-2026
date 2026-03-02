@@ -335,31 +335,229 @@ t_nfa optional_nfa(states_manager *manager, t_nfa *a) {
     return result;
 }
 
-nfa regex_to_nfa(const Regex r) {
-    (void)r;
+// End of NFA construction functions
+
+// Forward declarations for internal helper functions
+static void epsilon_closure(nfa *automaton, uint8_t state);
+static void calculate_epsilon_closure(nfa *automaton);
+static nfa  t_nfa_to_nfa(t_nfa temp_nfa, states_manager manager);
+
+
+/**
+ * @brief FUnction to compute the epsilon closure of a given state in the NFA.
+ * - Uses an iterative depth-first search (DFS) approach with a work stack to avoid recursion.
+ * - The closure is represented as a bitset (uint64_t) where each bit corresponds to a state.
+ * - The function updates the epsilon_closure_cache for the given state with the
+ */
+static void epsilon_closure(nfa *automaton, uint8_t state) {
+    // Epsilon is always at column 0 (see new_alphabet())
+    int epsilon_col = automaton->nfa_alphabet.char_to_col[(unsigned char)EPSILON_SYMBOL];
+
+    uint64_t closure = (uint64_t)1 << state;   // every state is in its own closure
+
+    // Iterative DFS via a small stack (at most MAX_STATES deep)
+    uint8_t work_stack[MAX_STATES];
+    int     top = 0;
+    work_stack[top++] = state;
+
+    while (top > 0) {
+        uint8_t  cur     = work_stack[--top];
+        uint64_t targets = automaton->transitions[cur][epsilon_col];
+
+        // Isolate states reachable but not yet in the closure
+        uint64_t fresh = targets & ~closure;
+        while (fresh) {
+            // Extract the lowest set bit
+            uint8_t next = (uint8_t)__builtin_ctzll(fresh);
+            closure     |= (uint64_t)1 << next;
+            work_stack[top++] = next;
+            fresh &= fresh - 1;   // clear lowest set bit
+        }
+    }
+
+    automaton->epsilon_closure_cache[state] = closure;
+}
+
+
+/**
+ * @brief Precomputes the epsilon closure for all states in the NFA and stores it in a cache.
+*/
+static void calculate_epsilon_closure(nfa *automaton) {
+    automaton->epsilon_closure_cache = calloc(automaton->states, sizeof(uint64_t));
+
+    for (uint8_t s = 0; s < automaton->states; s++) {
+        epsilon_closure(automaton, s);
+    }
+}
+
+
+/**
+ * @brief Function to convert a temporary NFA (t_nfa) and its associated states manager 
+ * into the final NFA structure.
+ * - Copies metadata (start state, accept states, number of states, and alphabet) from the temporary structures.
+ * - Allocates and populates the transition table based on the transitions recorded in the states manager.
+ * - Pre-computes the epsilon closures for all states in the resulting NFA.
+ * - Returns the fully constructed NFA ready for matching.
+ */
+static nfa t_nfa_to_nfa(t_nfa temp_nfa, states_manager manager){
     nfa result = {0};
+
+    // 1) Metadata
+    result.start_state  = temp_nfa.start;
+    result.accept_states = (uint64_t)1 << temp_nfa.end;   // single accept state
+    result.states        = manager.states_count;
+    result.nfa_alphabet  = manager.manager_alphabet;
+
+    // 2) Allocate transition table: result.transitions[state][symbol_col]
+    int sym_count = manager.manager_alphabet.symbol_count;
+
+    result.transitions = calloc(result.states, sizeof(uint64_t *));
+    for (int s = 0; s < result.states; s++) {
+        result.transitions[s] = calloc(sym_count, sizeof(uint64_t));
+    }
+
+    // 3) Populate transitions from manager records
+    for (int i = 0; i < manager.transitions_count; i++) {
+        t_transition tr  = manager.transitions[i];
+        int          col = manager.manager_alphabet.char_to_col[(unsigned char)tr.symbol];
+        if (col >= 0) {
+            result.transitions[tr.from_state][col] |= (uint64_t)1 << tr.to_state;
+        }
+    }
+
+    // 4) Pre-compute epsilon closures
+    calculate_epsilon_closure(&result);
+
     return result;
 }
 
-nfa t_nfa_to_nfa(t_nfa temp_nfa, states_manager manager) {
-    (void)temp_nfa;
-    (void)manager;
-    nfa result = {0};
-    return result;
+
+/**
+ * @brief Function to convert a parsed regular expression (in postfix form) into an NFA.
+ * - Uses a stack-based approach to construct the NFA from the postfix expression.
+ * - For each item in the regex:   
+ *    - If it's a character, creates a symbol NFA and pushes it onto the stack.
+ *    - If it's an operator, pops the necessary operands from the stack, applies the operator to create a new NFA fragment, and pushes the result back on the stack. 
+ *    - After processing all items, validates that exactly one NFA fragment remains on the stack, which represents the final NFA for the entire regex.
+ * - Returns the constructed NFA.
+ */
+nfa regex_to_nfa(const Regex r){
+    states_manager manager = new_states_manager();
+    t_nfa stack[MAX_STATES];
+    int   stack_top = 0;
+
+    for (int i = 0; i < r.size; i++) {
+        Item item = r.items[i];
+
+        switch (item.type) {
+
+            case ITEM_CHAR: {
+                // Operand: push a single-symbol NFA fragment
+                add_symbol(&manager.manager_alphabet, item.value);
+                t_nfa frag = symbol_nfa(&manager, item.value);
+                stack[stack_top++] = frag;
+                break;
+            }
+
+            case ITEM_CONCAT: {
+                // Binary: pop b then a, push concat(a, b)
+                t_nfa b = stack[--stack_top];
+                t_nfa a = stack[--stack_top];
+                stack[stack_top++] = concat_nfa(&manager, &a, &b);
+                break;
+            }
+
+            case ITEM_OR: {
+                // Binary: pop b then a, push union(a, b)
+                t_nfa b = stack[--stack_top];
+                t_nfa a = stack[--stack_top];
+                stack[stack_top++] = union_nfa(&manager, &a, &b);
+                break;
+            }
+
+            case ITEM_STAR: {
+                // Unary: pop a, push kleene*(a)
+                t_nfa a = stack[--stack_top];
+                stack[stack_top++] = kleene_closure_nfa(&manager, &a);
+                break;
+            }
+
+            case ITEM_PLUS: {
+                // Unary: pop a, push positive+(a)
+                t_nfa a = stack[--stack_top];
+                stack[stack_top++] = positive_closure_nfa(&manager, &a);
+                break;
+            }
+
+            case ITEM_QUESTION: {
+                // Unary: pop a, push optional?(a)
+                t_nfa a = stack[--stack_top];
+                stack[stack_top++] = optional_nfa(&manager, &a);
+                break;
+            }
+
+            default:
+                break;   // Ignore LPAREN/RPAREN (shouldn't appear in postfix)
+        }
+    }
+
+    // Validate: exactly one fragment must remain
+    if (stack_top != 1) {
+        nfa empty = {0};
+        return empty;
+    }
+
+    return t_nfa_to_nfa(stack[0], manager);
 }
 
-void calculate_epsilon_closure(nfa *automaton) {
-    (void)automaton;
-}
 
-void epsilon_closure(nfa *automaton, uint8_t state) {
-    (void)automaton;
-    (void)state;
-}
 
-bool match_nfa(nfa automaton, const char *input, size_t input_length) {
-    (void)automaton;
-    (void)input;
-    (void)input_length;
-    return false;
+
+
+/**
+ * @brief SFUnction to match an input string against an NFA.
+ * - Starts from the epsilon closure of the start state.
+ * - For each input symbol, computes the set of reachable states and then expands them with their epsilon closures.
+ * - After processing all input symbols, checks if any of the current states are accept states.
+ * - Returns true if the input is accepted by the NFA, false otherwise.
+ */
+bool match_nfa(nfa automaton, const char *input, size_t input_length){
+    // 1) Start from the epsilon closure of the start state
+    uint64_t current = automaton.epsilon_closure_cache[automaton.start_state];
+
+    for (size_t i = 0; i < input_length; i++) {
+        char c   = input[i];
+        int  col = automaton.nfa_alphabet.char_to_col[(unsigned char)c];
+
+        // Symbol not in alphabet → immediate reject
+        if (col < 0) {
+            return false;
+        }
+
+        // 2a) move(current, c): collect all states reachable on symbol c
+        uint64_t move_set = 0;
+        uint64_t tmp      = current;
+        while (tmp) {
+            uint8_t s  = (uint8_t)__builtin_ctzll(tmp);
+            move_set  |= automaton.transitions[s][col];
+            tmp       &= tmp - 1;
+        }
+
+        // Early reject if no states are reachable
+        if (move_set == 0) {
+            return false;
+        }
+
+        // 2b) Expand each reached state with its epsilon closure
+        current = 0;
+        tmp     = move_set;
+        while (tmp) {
+            uint8_t s  = (uint8_t)__builtin_ctzll(tmp);
+            current   |= automaton.epsilon_closure_cache[s];
+            tmp       &= tmp - 1;
+        }
+    }
+
+    // 3) Accept if any current state is an accept state
+    return (current & automaton.accept_states) != 0;
 }
